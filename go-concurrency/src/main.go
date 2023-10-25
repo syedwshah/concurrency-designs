@@ -7,22 +7,24 @@ import (
 	"time"
 )
 
-// Design 1 (Sync):
+// Design 1 (Sync): Design a request dispatcher for a web-server that accepts and processes incoming web requests concurrently and responds synchronously.
 // func main() {
 
 // 	r := http.NewServeMux()
 // 	var wg sync.WaitGroup
 
 // 	r.HandleFunc("/process", func(w http.ResponseWriter, r *http.Request) {
-// 		wg.Add(1)
-// 		go func() {
-// 			defer wg.Done()
+// 		for i := 1; i <= 5; i++ {
+// 			wg.Add(1)
 
-// 			// Simulate processing
-// 			time.Sleep(5 * time.Second)
-// 			// fmt.Fprintln(w, "Processing complete")
-//             fmt.Printf("Processing complete")
-// 		}()
+// 			go func(id int) {
+// 				defer wg.Done()
+// 				fmt.Printf("Worker %d starting\n", id)
+
+// 				time.Sleep(time.Second * 10)
+// 				fmt.Printf("Worker %d done\n", id)
+// 			}(i)
+// 		}
 // 	})
 
 // 	r.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +36,7 @@ import (
 // 	http.ListenAndServe(":8080", nil)
 // }
 
-// Design 1 (Async):
+// Design 1 (Async): Modify design to support asynchronous response
 func main() {
 	r := http.NewServeMux()
 	var mu sync.Mutex
@@ -42,19 +44,21 @@ func main() {
 
 	r.HandleFunc("/process", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
+		defer mu.Unlock()
+		fmt.Fprintln(w, "Processing...")
+
 		if processing {
-			mu.Unlock()
 			fmt.Fprintln(w, "Processing is already in progress")
 			return
 		}
+		
 		processing = true
-		mu.Unlock()
 
 		go func() {
+			mu.Lock()
 			// Simulate processing
 			time.Sleep(5 * time.Second)
 
-			mu.Lock()
 			processing = false
 			mu.Unlock()
 
@@ -63,13 +67,12 @@ func main() {
 	})
 
 	r.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
 		if processing {
-			mu.Unlock()
 			fmt.Fprintln(w, "Processing is in progress")
 		} else {
-			mu.Unlock()
+			mu.Lock()
 			fmt.Fprintln(w, "No processing is currently happening")
+			defer mu.Unlock()
 		}
 	})
 
